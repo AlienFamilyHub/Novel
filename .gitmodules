@@ -1,0 +1,6 @@
+[submodule "hexo-theme-PostOnly"]
+	path = hexo-theme-PostOnly
+	url = https://github.com/OblivionOcean/hexo-theme-PostOnly.git
+[submodule "themes/PostOnly"]
+	path = themes/PostOnly
+	url = https://github.com/OblivionOcean/hexo-theme-PostOnly.git
