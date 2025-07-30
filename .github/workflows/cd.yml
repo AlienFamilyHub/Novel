@@ -83,6 +83,7 @@ jobs:
         uses: stefanprodan/helm-gh-pages@master
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          charts_dir: charts
       
       # 步骤 3: 安装 Helm CLI
       - name: Set up Helm
