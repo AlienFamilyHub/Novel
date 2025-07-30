@@ -1,5 +1,7 @@
 name: Build and Deploy
 
+concurrency: production
+
 on:
   push:
     branches:
@@ -53,6 +55,7 @@ jobs:
   deploy-to-kubernetes:
     runs-on: ubuntu-latest
     needs: build-and-push-image # 依赖上一个 job
+    environment: Production
     permissions:
       contents: write # 需要写权限来发布 chart 到 gh-pages 分支
 
