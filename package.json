@@ -11,6 +11,7 @@
   "hexo": {
     "version": "7.3.0"
   },
+  "packageManager": "pnpm@10.13.1",
   "dependencies": {
     "hexo": "^7.0.0",
     "hexo-generator-archive": "^2.0.0",
