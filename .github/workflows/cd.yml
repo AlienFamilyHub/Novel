@@ -79,13 +79,10 @@ jobs:
           fi
           
       # 步骤 2: 如果 Chart 有变更，则打包并发布到 GitHub Pages
-      - name: Publish Helm chart to GH Pages
-        if: steps.chart_changes.outputs.changed == 'true'
+      - name: Publish Helm charts
         uses: stefanprodan/helm-gh-pages@master
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          charts_dir: charts
-          charts_url: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
       
       # 步骤 3: 安装 Helm CLI
       - name: Set up Helm
