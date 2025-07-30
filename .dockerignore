@@ -1,0 +1,23 @@
+# Git 版本控制文件
+.git
+.gitignore
+
+# Docker 相关文件
+.dockerignore
+Dockerfile
+
+# Node.js 依赖目录，将在容器内安装
+node_modules
+
+# Hexo 生成的临时和公共目录
+public
+db.json
+
+# 调试日志
+*.log
+debug.log*
+npm-debug.log*
+
+# 操作系统生成的文件
+.DS_Store
+Thumbs.db
