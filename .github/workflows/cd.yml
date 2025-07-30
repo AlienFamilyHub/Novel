@@ -1,7 +1,5 @@
 name: Build and Deploy
 
-concurrency: production
-
 on:
   push:
     branches:
@@ -9,11 +7,17 @@ on:
   workflow_dispatch:
 
 jobs:
+  # ===============================================================
+  # JOB 1: Build and Push Docker Image to GHCR
+  # ===============================================================
   build-and-push-image:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+    outputs:
+      image_tag: ${{ steps.meta.outputs.version }} # 输出 commit SHA 标签给下一个 job
+      image_repo: ghcr.io/${{ github.repository }}
 
     steps:
       - name: Checkout repository
@@ -21,7 +25,7 @@ jobs:
         with:
             submodules: true
 
-      - name: Log in to the Container registry
+      - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -33,17 +37,86 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository }}
-          tags: |
-            # 为每个事件生成 Git commit SHA 标签 (格式: sha-xxxxxxx)
-            type=sha,prefix=,format=short
-            # 如果事件是推送到默认分支，则添加 'latest' 标签
-            type=raw,value=latest,enable={{is_default_branch}}
+          tags: type=sha,prefix=,format=short
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
-          tags: ${{ steps.meta.outputs.tags }} 
+          tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-    
+
+  # ===============================================================
+  # JOB 2: Deploy to Kubernetes using Helm
+  # ===============================================================
+  deploy-to-kubernetes:
+    runs-on: ubuntu-latest
+    needs: build-and-push-image # 依赖上一个 job
+    permissions:
+      contents: write # 需要写权限来发布 chart 到 gh-pages 分支
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 获取所有历史记录，以便比较文件变更
+
+      # 步骤 1: 检测 Helm Chart 是否有变更
+      - name: Detect Helm chart changes
+        id: chart_changes
+        run: |
+          # 比较上一个 commit 和当前 commit 在 'charts' 目录中的差异
+          if git diff --name-only HEAD~1 HEAD -- 'charts/' | grep .; then
+            echo "Helm chart has changed."
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "No changes in Helm chart."
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+          
+      # 步骤 2: 如果 Chart 有变更，则打包并发布到 GitHub Pages
+      - name: Publish Helm chart to GH Pages
+        if: steps.chart_changes.outputs.changed == 'true'
+        uses: stefanprodan/helm-gh-pages@master
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          charts_dir: charts
+          charts_url: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
+      
+      # 步骤 3: 安装 Helm CLI
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.17.4 # 可以指定一个版本
+
+      # 步骤 4: 设置 Kubeconfig 上下文
+      - name: Set up Kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBECONFIG }}" > ~/.kube/config
+          chmod 600 ~/.kube/config
+
+      # 步骤 5: 添加 Helm 仓库并执行部署
+      - name: Add Helm repo and Deploy
+        run: |
+          # 定义变量
+          REPO_NAME="alienfamily-novel"
+          REPO_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
+          CHART_NAME="Novel" # 你的 Chart 目录名
+          RELEASE_NAME="alienfamily-novel" # 你想要在 K8s 中部署的 release 名称
+          NAMESPACE="alienfamily-novel" # 你要部署到的命名空间
+
+          # 添加或更新 Helm 仓库
+          helm repo add $REPO_NAME $REPO_URL
+          helm repo update
+
+          # 执行 Helm 部署
+          echo "Upgrading release $RELEASE_NAME in namespace $NAMESPACE..."
+          helm upgrade --install $RELEASE_NAME $REPO_NAME/$CHART_NAME \
+            --namespace $NAMESPACE \
+            --create-namespace \
+            --set image.tag=${{ needs.build-and-push-image.outputs.image_tag }} \
+            -f ./charts/$CHART_NAME/values.yaml \
+            --atomic \
+            --wait
