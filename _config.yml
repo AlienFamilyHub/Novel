@@ -3,12 +3,12 @@
 ## Source: https://github.com/hexojs/hexo/
 
 # Site
-title: Hexo
+title: Novel
 subtitle: ''
 description: ''
-keywords:
-author: John Doe
-language: en
+keywords: '哎！数据库真变成女孩了？,AlienFamilyHub,ACNG,小说,轻小说'
+author: AlienFamilyHub
+language: zh-CN
 timezone: 'Asia/Shanghai'
 
 # URL
